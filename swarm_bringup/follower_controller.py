@@ -2,21 +2,19 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
+from action_msgs.msg import GoalStatusArray
 from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 import math
 
 
-# Formation offsets relative to leader (map frame)
-# (x_behind, y_side)
 FORMATION = {
-    'robot2': (-0.8,  0.6),   # left
-    'robot3': (-0.8, -0.6),   # right
-    'robot4': (-1.6,  0.0),   # center-rear
+    'robot2': (-0.8,  0.6),
+    'robot3': (-0.8, -0.6),
+    'robot4': (-1.6,  0.0),
 }
 
 LEADER = 'robot1'
-MOVE_THRESHOLD = 0.5  # metres leader must move before followers activate
 
 
 class FollowerController(Node):
@@ -26,25 +24,23 @@ class FollowerController(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # One action client per follower
+        # Subscribe to robot1's navigate_to_pose status
+        self.status_sub = self.create_subscription(
+            GoalStatusArray,
+            f'/{LEADER}/navigate_to_pose/_action/status',
+            self.on_leader_status,
+            10
+        )
+
+        # Action clients for followers
         self.action_clients = {}
         for robot in FORMATION.keys():
             self.action_clients[robot] = ActionClient(
-                self,
-                NavigateToPose,
-                f'/{robot}/navigate_to_pose'
+                self, NavigateToPose, f'/{robot}/navigate_to_pose'
             )
 
-        # Track last sent goal per follower to avoid spamming
-        self.last_goal = {robot: None for robot in FORMATION.keys()}
-        self.goal_handles = {robot: None for robot in FORMATION.keys()}
-
-        # Leader start position
-        self.leader_start = None
-        self.activated = False
-
-        self.timer = self.create_timer(0.5, self.timer_callback)
-        self.get_logger().info('follower_controller started, waiting for leader to move...')
+        self.last_status = None  # track previous status to detect transition
+        self.get_logger().info('follower_controller started — waiting for robot1 to complete a goal...')
 
     def get_robot_pose(self, robot_name):
         try:
@@ -55,61 +51,45 @@ class FollowerController(Node):
             )
             x = transform.transform.translation.x
             y = transform.transform.translation.y
-
-            # Extract yaw from quaternion
             q = transform.transform.rotation
             yaw = math.atan2(
                 2.0 * (q.w * q.z + q.x * q.y),
                 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
             )
             return x, y, yaw
-        except Exception:
+        except Exception as e:
+            self.get_logger().warn(f'TF lookup failed: {e}')
             return None
 
-    def timer_callback(self):
-        leader_pose = self.get_robot_pose(LEADER)
-        if leader_pose is None:
+    def on_leader_status(self, msg):
+        if not msg.status_list:
             return
 
-        lx, ly, lyaw = leader_pose
+        # Get the most recent goal's status
+        current_status = msg.status_list[-1].status
 
-        # Record leader start position once
-        if self.leader_start is None:
-            self.leader_start = (lx, ly)
-            return
-
-        # Check if leader has moved enough
-        dist = math.sqrt(
-            (lx - self.leader_start[0]) ** 2 +
-            (ly - self.leader_start[1]) ** 2
-        )
-
-        if not self.activated:
-            if dist > MOVE_THRESHOLD:
-                self.activated = True
-                self.get_logger().info(
-                    f'Leader moved {dist:.2f}m — activating followers'
-                )
-            else:
+        # Detect transition TO succeeded (status 4)
+        # Only trigger once when it first becomes 4
+        if current_status == 4 and self.last_status != 4:
+            self.get_logger().info('robot1 reached its goal! Sending formation goals...')
+            leader_pose = self.get_robot_pose(LEADER)
+            if leader_pose is None:
+                self.get_logger().warn('Could not get robot1 pose')
+                self.last_status = current_status
                 return
 
-        # Send goals to each follower
-        for robot, (dx, dy) in FORMATION.items():
-            # Rotate offsets by leader yaw
-            goal_x = lx + dx * math.cos(lyaw) - dy * math.sin(lyaw)
-            goal_y = ly + dx * math.sin(lyaw) + dy * math.cos(lyaw)
+            lx, ly, lyaw = leader_pose
+            self.get_logger().info(f'robot1 at ({lx:.2f}, {ly:.2f}, yaw={lyaw:.2f} rad)')
 
-            # Only resend if goal changed significantly (>0.15m)
-            if self.last_goal[robot] is not None:
-                prev_x, prev_y = self.last_goal[robot]
-                if math.sqrt((goal_x - prev_x)**2 + (goal_y - prev_y)**2) < 0.15:
-                    continue
+            for robot, (dx, dy) in FORMATION.items():
+                goal_x = lx + dx * math.cos(lyaw) - dy * math.sin(lyaw)
+                goal_y = ly + dx * math.sin(lyaw) + dy * math.cos(lyaw)
+                self.send_goal(robot, goal_x, goal_y, lyaw)
 
-            self.send_goal(robot, goal_x, goal_y, lyaw)
-            self.last_goal[robot] = (goal_x, goal_y)
+        self.last_status = current_status
 
     def send_goal(self, robot, x, y, yaw):
-        if not self.action_clients[robot].wait_for_server(timeout_sec=1.0):
+        if not self.action_clients[robot].wait_for_server(timeout_sec=2.0):
             self.get_logger().warn(f'{robot} action server not available')
             return
 
@@ -117,12 +97,9 @@ class FollowerController(Node):
         goal_msg.pose = PoseStamped()
         goal_msg.pose.header.frame_id = 'map'
         goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-
         goal_msg.pose.pose.position.x = x
         goal_msg.pose.pose.position.y = y
         goal_msg.pose.pose.position.z = 0.0
-
-        # Convert yaw back to quaternion
         goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
         goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
 
