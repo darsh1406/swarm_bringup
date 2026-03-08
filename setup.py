@@ -34,6 +34,7 @@ setup(
             'odom_tf_broadcaster = swarm_bringup.odom_tf_broadcaster:main',
             'obstacle_broadcaster = swarm_bringup.obstacle_broadcaster:main',
             'follower_controller = swarm_bringup.follower_controller:main',
+            'waypoint_sender = swarm_bringup.waypoint_sender:main',
             'formation_controller = swarm_bringup.formation_controller:main',
         ],
     },
