@@ -2,11 +2,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
-from action_msgs.msg import GoalStatusArray
 from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 import math
-import time
 
 
 FORMATION = {
@@ -16,7 +14,6 @@ FORMATION = {
 }
 
 LEADER = 'robot1'
-STARTUP_IGNORE_SECS = 10.0  # ignore stale status on startup
 
 
 class FollowerController(Node):
@@ -26,10 +23,11 @@ class FollowerController(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.status_sub = self.create_subscription(
-            GoalStatusArray,
-            f'/{LEADER}/navigate_to_pose/_action/status',
-            self.on_leader_status,
+        # Subscribe to robot1's goal directly
+        self.goal_sub = self.create_subscription(
+            PoseStamped,
+            f'/{LEADER}/goal_pose',
+            self.on_leader_goal,
             10
         )
 
@@ -39,11 +37,7 @@ class FollowerController(Node):
                 self, NavigateToPose, f'/{robot}/navigate_to_pose'
             )
 
-        self.last_status = None
-        self.start_time = self.get_clock().now()
-        self.get_logger().info(
-            f'follower_controller started — ignoring status for {STARTUP_IGNORE_SECS}s...'
-        )
+        self.get_logger().info('follower_controller started — listening for robot1 goals...')
 
     def get_robot_pose(self, robot_name):
         try:
@@ -62,34 +56,22 @@ class FollowerController(Node):
             self.get_logger().warn(f'TF lookup failed: {e}')
             return None
 
-    def on_leader_status(self, msg):
-        if not msg.status_list:
+    def on_leader_goal(self, msg):
+        """Called immediately when robot1 receives a new goal."""
+        leader_pose = self.get_robot_pose(LEADER)
+        if leader_pose is None:
+            self.get_logger().warn('Could not get robot1 pose')
             return
 
-        # Ignore stale status on startup
-        elapsed = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
-        if elapsed < STARTUP_IGNORE_SECS:
-            return
+        lx, ly, lyaw = leader_pose
+        self.get_logger().info(
+            f'robot1 got new goal — sending formation goals from ({lx:.2f}, {ly:.2f})'
+        )
 
-        current_status = msg.status_list[-1].status
-
-        if current_status == 4 and self.last_status != 4:
-            self.get_logger().info('robot1 reached goal! Sending formation goals...')
-            leader_pose = self.get_robot_pose(LEADER)
-            if leader_pose is None:
-                self.get_logger().warn('Could not get robot1 pose')
-                self.last_status = current_status
-                return
-
-            lx, ly, lyaw = leader_pose
-            self.get_logger().info(f'robot1 at ({lx:.2f}, {ly:.2f}, yaw={lyaw:.2f})')
-
-            for robot, (dx, dy) in FORMATION.items():
-                goal_x = lx + dx * math.cos(lyaw) - dy * math.sin(lyaw)
-                goal_y = ly + dx * math.sin(lyaw) + dy * math.cos(lyaw)
-                self.send_goal(robot, goal_x, goal_y, lyaw)
-
-        self.last_status = current_status
+        for robot, (dx, dy) in FORMATION.items():
+            goal_x = lx + dx * math.cos(lyaw) - dy * math.sin(lyaw)
+            goal_y = ly + dx * math.sin(lyaw) + dy * math.cos(lyaw)
+            self.send_goal(robot, goal_x, goal_y, lyaw)
 
     def send_goal(self, robot, x, y, yaw):
         if not self.action_clients[robot].wait_for_server(timeout_sec=2.0):

@@ -181,6 +181,15 @@ def generate_launch_description():
                 output='screen'
             ),
 
+            # Obstacle broadcaster
+            Node(
+                package='swarm_bringup',
+                executable='obstacle_broadcaster',
+                name='obstacle_broadcaster',
+                parameters=[{'robot_name': name}],
+                output='screen'
+            ),
+
             # Lifecycle manager
             Node(
                 package='nav2_lifecycle_manager',
