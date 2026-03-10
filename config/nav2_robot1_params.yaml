@@ -63,7 +63,7 @@
       enabled: true
       observation_sources: scan
       scan:
-        topic: /robot1/scan
+        topic: /robot1/scan_filtered
         max_obstacle_height: 2.0
         clearing: true
         marking: true
@@ -98,7 +98,7 @@
       enabled: true
       observation_sources: scan
       scan:
-        topic: /robot1/scan
+        topic: /robot1/scan_filtered
         max_obstacle_height: 2.0
         clearing: true
         marking: true

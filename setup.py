@@ -36,6 +36,8 @@ setup(
             'follower_controller = swarm_bringup.follower_controller:main',
             'waypoint_sender = swarm_bringup.waypoint_sender:main',
             'swarm_controller = swarm_bringup.swarm_controller:main',
+            'scan_filter = swarm_bringup.scan_filter:main',
+            'follower_vel_controller = swarm_bringup.follower_vel_controller:main',
             'formation_controller = swarm_bringup.formation_controller:main',
         ],
     },

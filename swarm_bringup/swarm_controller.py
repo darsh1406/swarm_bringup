@@ -1,21 +1,22 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from nav2_msgs.action import NavigateToPose, ComputePathToPose
+from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped
 from tf2_ros import Buffer, TransformListener
 import math
 
 
-FORMATION = {
-    'robot2': (-0.7,  0.2),
-    'robot4': (-2.0,  0.0),
-    'robot3': (-1.2,  0.0),
+SPAWN_POSITIONS = {
+    'robot1': (1.5,  0.0),
+    'robot2': (1.0,  1.0),
+    'robot3': (1.0, -1.2),
+    'robot4': (0.8,  0.0),
 }
 
 LEADER = 'robot1'
-SEARCH_STEP = 0.15
-SEARCH_RINGS = 10
+MAX_RETRIES = 5
+SEARCH_STEP = 0.2
 
 
 class SwarmController(Node):
@@ -30,19 +31,16 @@ class SwarmController(Node):
         )
 
         self.nav_clients = {}
-        self.path_clients = {}
-        for robot in [LEADER] + list(FORMATION.keys()):
+        for robot in SPAWN_POSITIONS.keys():
             self.nav_clients[robot] = ActionClient(
                 self, NavigateToPose, f'/{robot}/navigate_to_pose'
             )
-        for robot in FORMATION.keys():
-            self.path_clients[robot] = ActionClient(
-                self, ComputePathToPose, f'/{robot}/compute_path_to_pose'
-            )
 
-        # Queue for sequential follower dispatch
-        self.pending_followers = []
-        self.dispatching = False
+        self.current_base = dict(SPAWN_POSITIONS)
+        self.pending_dx = 0.0
+        self.pending_dy = 0.0
+        self.pending_gyaw = 0.0
+        self.retry_counts = {r: 0 for r in SPAWN_POSITIONS}
 
         self.get_logger().info('swarm_controller ready — publish to /swarm/goal!')
 
@@ -55,95 +53,69 @@ class SwarmController(Node):
             1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         )
 
-        self.get_logger().info(f'Swarm goal: ({gx:.2f}, {gy:.2f}, yaw={gyaw:.2f})')
+        # Get robot1 actual position
+        actual = self.get_robot_pose(LEADER)
+        if actual:
+            r1x, r1y, _ = actual
+            self.current_base[LEADER] = (r1x, r1y)
+        else:
+            r1x, r1y = self.current_base[LEADER]
 
-        # Send robot1 immediately
+        dx = gx - r1x
+        dy = gy - r1y
+
+        self.get_logger().info(f'Swarm goal: ({gx:.2f}, {gy:.2f}) delta=({dx:.2f}, {dy:.2f})')
+
+        self.pending_dx = dx
+        self.pending_dy = dy
+        self.pending_gyaw = gyaw
+        self.retry_counts = {r: 0 for r in SPAWN_POSITIONS}
+
+        # Send only robot1 first
         self.send_nav_goal(LEADER, gx, gy, gyaw)
 
-        # Queue followers for sequential dispatch
-        self.pending_followers = []
-        for robot, (dx, dy) in FORMATION.items():
-            fx = gx + dx * math.cos(gyaw) - dy * math.sin(gyaw)
-            fy = gy + dx * math.sin(gyaw) + dy * math.cos(gyaw)
-            self.pending_followers.append((robot, fx, fy, gyaw))
+    def send_followers(self):
+        """Called after robot1 reaches its goal."""
+        actual = self.get_robot_pose(LEADER)
+        if actual:
+            r1x, r1y, _ = actual
+            self.current_base[LEADER] = (r1x, r1y)
 
-        # Start dispatching after 5s delay
-        self.dispatching = True
-        self._dispatch_timer = self.create_timer(5.0, self._dispatch_next)
+        for follower in ['robot2', 'robot3', 'robot4']:
+            bx, by = self.current_base[follower]
+            tx = bx + self.pending_dx
+            ty = by + self.pending_dy
+            self.current_base[follower] = (tx, ty)
+            self.get_logger().info(f'Sending {follower} to ({tx:.2f}, {ty:.2f})')
+            self.send_nav_goal(follower, tx, ty, self.pending_gyaw)
 
-    def _dispatch_next(self):
-        self._dispatch_timer.cancel()
-        if not self.pending_followers:
-            self.dispatching = False
-            return
-
-        robot, fx, fy, gyaw = self.pending_followers.pop(0)
-        candidates = self.generate_candidates(fx, fy)
-        self.try_next_candidate(robot, candidates, 0, gyaw)
-
-        # Schedule next follower after 10s
-        if self.pending_followers:
-            self._dispatch_timer = self.create_timer(10.0, self._dispatch_next)
-
-    def generate_candidates(self, x, y):
-        candidates = [(x, y)]
-        for ring in range(1, SEARCH_RINGS + 1):
-            n_points = max(8, ring * 8)
-            for i in range(n_points):
-                angle = 2 * math.pi * i / n_points
-                nx = x + ring * SEARCH_STEP * math.cos(angle)
-                ny = y + ring * SEARCH_STEP * math.sin(angle)
-                candidates.append((nx, ny))
-        return candidates
-
-    def try_next_candidate(self, robot, candidates, idx, yaw):
-        if idx >= len(candidates):
-            self.get_logger().warn(f'{robot} no free position found!')
-            return
-
-        cx, cy = candidates[idx]
-
-        if not self.path_clients[robot].wait_for_server(timeout_sec=1.0):
-            self.send_nav_goal(robot, cx, cy, yaw)
-            return
-
-        goal_msg = ComputePathToPose.Goal()
-        goal_msg.goal = PoseStamped()
-        goal_msg.goal.header.frame_id = 'map'
-        goal_msg.goal.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.goal.pose.position.x = cx
-        goal_msg.goal.pose.position.y = cy
-        goal_msg.goal.pose.orientation.w = 1.0
-        goal_msg.use_start = False
-
-        future = self.path_clients[robot].send_goal_async(goal_msg)
-        future.add_done_callback(
-            lambda f, r=robot, c=candidates, i=idx, yw=yaw, x=cx, y=cy:
-                self.path_response_cb(f, r, c, i, yw, x, y)
+    def get_spiral_candidate(self, x, y, attempt):
+        """Get candidate position at given attempt number using spiral."""
+        if attempt == 0:
+            return x, y
+        ring = (attempt - 1) // 8 + 1
+        idx  = (attempt - 1) % 8
+        angle = idx * math.pi / 4
+        return (
+            x + ring * SEARCH_STEP * math.cos(angle),
+            y + ring * SEARCH_STEP * math.sin(angle)
         )
 
-    def path_response_cb(self, future, robot, candidates, idx, yaw, cx, cy):
-        handle = future.result()
-        if not handle.accepted:
-            self.try_next_candidate(robot, candidates, idx + 1, yaw)
-            return
-        result_future = handle.get_result_async()
-        result_future.add_done_callback(
-            lambda f, r=robot, c=candidates, i=idx, yw=yaw, x=cx, y=cy:
-                self.path_result_cb(f, r, c, i, yw, x, y)
-        )
-
-    def path_result_cb(self, future, robot, candidates, idx, yaw, cx, cy):
-        result = future.result()
-        if len(result.result.path.poses) > 0:
-            ox, oy = candidates[0]
-            if cx != ox or cy != oy:
-                self.get_logger().info(
-                    f'{robot} shifted goal from ({ox:.2f},{oy:.2f}) to ({cx:.2f},{cy:.2f})'
-                )
-            self.send_nav_goal(robot, cx, cy, yaw)
-        else:
-            self.try_next_candidate(robot, candidates, idx + 1, yaw)
+    def get_robot_pose(self, robot_name):
+        try:
+            t = self.tf_buffer.lookup_transform(
+                'map', f'{robot_name}/base_footprint', rclpy.time.Time()
+            )
+            x = t.transform.translation.x
+            y = t.transform.translation.y
+            q = t.transform.rotation
+            yaw = math.atan2(
+                2.0 * (q.w * q.z + q.x * q.y),
+                1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+            )
+            return x, y, yaw
+        except Exception:
+            return None
 
     def send_nav_goal(self, robot, x, y, yaw):
         if not self.nav_clients[robot].wait_for_server(timeout_sec=2.0):
@@ -164,25 +136,38 @@ class SwarmController(Node):
         future.add_done_callback(
             lambda f, r=robot, gx=x, gy=y: self.goal_response_cb(f, r, gx, gy)
         )
-        self.get_logger().info(f'Sent nav goal to {robot}: ({x:.2f}, {y:.2f})')
 
     def goal_response_cb(self, future, robot, x, y):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
+        handle = future.result()
+        if not handle.accepted:
             self.get_logger().warn(f'{robot} goal REJECTED')
             return
-        self.get_logger().info(f'{robot} goal accepted')
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(
+        self.get_logger().info(f'{robot} goal accepted → ({x:.2f}, {y:.2f})')
+        handle.get_result_async().add_done_callback(
             lambda f, r=robot, gx=x, gy=y: self.goal_result_cb(f, r, gx, gy)
         )
 
     def goal_result_cb(self, future, robot, x, y):
         status = future.result().status
         if status == 4:
-            self.get_logger().info(f'{robot} reached ({x:.2f}, {y:.2f}) SUCCESS')
+            self.get_logger().info(f'{robot} SUCCESS ({x:.2f}, {y:.2f})')
+            if robot == LEADER:
+                self.send_followers()
         else:
-            self.get_logger().warn(f'{robot} FAILED ({x:.2f}, {y:.2f}) status={status}')
+            self.retry_counts[robot] += 1
+            attempt = self.retry_counts[robot]
+
+            if attempt > MAX_RETRIES:
+                self.get_logger().warn(f'{robot} gave up after {MAX_RETRIES} retries')
+                return
+
+            # Get next spiral candidate from the original target
+            bx, by = self.current_base[robot]
+            nx, ny = self.get_spiral_candidate(bx, by, attempt)
+            self.get_logger().warn(
+                f'{robot} FAILED attempt {attempt} — retrying ({nx:.2f}, {ny:.2f})'
+            )
+            self.send_nav_goal(robot, nx, ny, self.pending_gyaw)
 
 
 def main(args=None):

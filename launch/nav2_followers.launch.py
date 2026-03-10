@@ -181,6 +181,15 @@ def generate_launch_description():
                 output='screen'
             ),
 
+            # Scan filter — removes other robots from laser scan
+            Node(
+                package='swarm_bringup',
+                executable='scan_filter',
+                name='scan_filter',
+                parameters=[{'robot_name': name}],
+                output='screen'
+            ),
+
             # Obstacle broadcaster
             Node(
                 package='swarm_bringup',
