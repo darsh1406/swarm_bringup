@@ -12,6 +12,9 @@
 <p align="center">
   <img src="docs/assets/screenshot.png" alt="Gazebo + RViz" width="800"/>
 </p>
+<p align="center">
+  <img src="docs/assets/Video.gif" alt="Swarm Navigation Demo" width="800"/>
+</p>
 
 <p align="center">
   Coordinated 4-robot swarm navigation using ROS2 Jazzy and Nav2 — each robot navigates independently while maintaining formation geometry in a cylinder-obstacle environment.
