@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/assets/screenshot.png" alt="Gazebo + RViz" width="800"/>
+</p>
+
+<p align="center">
   Coordinated 4-robot swarm navigation using ROS2 Jazzy and Nav2 — each robot navigates independently while maintaining formation geometry in a cylinder-obstacle environment.
 </p>
 
@@ -153,10 +157,17 @@ rviz2 -d ~/swarm_ws/src/swarm_bringup/rviz/swarm.rviz
 
 ### Sending Goals
 
-**Option A — RViz:** Click **2D Goal Pose** → click anywhere on the map
+**Option A — RViz (Recommended)**
+
+1. Open RViz using Terminal 5 above
+2. Click the **"2D Goal Pose"** button in the top toolbar
+3. Click anywhere on the white (free) area of the map
+4. All 4 robots will immediately begin navigating to their coordinated positions
+
+> ✅ This is the easiest and most intuitive way to control the swarm interactively.
 
 **Option B — CLI:**
-```bash
+````bash
 ros2 topic pub --once /swarm/goal geometry_msgs/msg/PoseStamped \
   "{header: {frame_id: 'map'}, pose: {position: {x: 2.5, y: 0.5, z: 0.0}, orientation: {w: 1.0}}}"
 ```
