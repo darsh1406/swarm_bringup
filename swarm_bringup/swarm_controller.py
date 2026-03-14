@@ -17,6 +17,7 @@ SPAWN_POSITIONS = {
 LEADER = 'robot1'
 MAX_RETRIES = 5
 SEARCH_STEP = 0.2
+GOAL_COOLDOWN = 2.0  # seconds — ignore duplicate goals from RViz
 
 
 class SwarmController(Node):
@@ -29,6 +30,9 @@ class SwarmController(Node):
         self.goal_sub = self.create_subscription(
             PoseStamped, '/swarm/goal', self.on_swarm_goal, 10
         )
+        self.rviz_goal_sub = self.create_subscription(
+            PoseStamped, '/goal_pose', self.on_swarm_goal, 10
+        )
 
         self.nav_clients = {}
         for robot in SPAWN_POSITIONS.keys():
@@ -37,14 +41,23 @@ class SwarmController(Node):
             )
 
         self.current_base = dict(SPAWN_POSITIONS)
+        self.leader_start_pos = (1.5, 0.0)
         self.pending_dx = 0.0
         self.pending_dy = 0.0
         self.pending_gyaw = 0.0
         self.retry_counts = {r: 0 for r in SPAWN_POSITIONS}
+        self.robot_targets = {}
+        self.last_goal_time = 0.0
 
         self.get_logger().info('swarm_controller ready — publish to /swarm/goal!')
 
     def on_swarm_goal(self, msg):
+        now = self.get_clock().now().nanoseconds / 1e9
+        if now - self.last_goal_time < GOAL_COOLDOWN:
+            self.get_logger().warn('Goal ignored — cooldown not elapsed')
+            return
+        self.last_goal_time = now
+
         gx = msg.pose.position.x
         gy = msg.pose.position.y
         q = msg.pose.orientation
@@ -53,7 +66,6 @@ class SwarmController(Node):
             1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         )
 
-        # Get robot1 actual position
         actual = self.get_robot_pose(LEADER)
         if actual:
             r1x, r1y, _ = actual
@@ -64,37 +76,44 @@ class SwarmController(Node):
         dx = gx - r1x
         dy = gy - r1y
 
-        self.get_logger().info(f'Swarm goal: ({gx:.2f}, {gy:.2f}) delta=({dx:.2f}, {dy:.2f})')
+        self.get_logger().info(
+            f'Swarm goal: ({gx:.2f}, {gy:.2f}) delta=({dx:.2f}, {dy:.2f})'
+        )
 
+        self.leader_start_pos = (r1x, r1y)
         self.pending_dx = dx
         self.pending_dy = dy
         self.pending_gyaw = gyaw
         self.retry_counts = {r: 0 for r in SPAWN_POSITIONS}
+        self.robot_targets = {LEADER: (gx, gy)}
 
-        # Send only robot1 first
         self.send_nav_goal(LEADER, gx, gy, gyaw)
+        self._delayed_timer = None  # clear timer reference
 
-    def send_followers(self):
-        """Called after robot1 reaches its goal."""
-        actual = self.get_robot_pose(LEADER)
-        if actual:
-            r1x, r1y, _ = actual
-            self.current_base[LEADER] = (r1x, r1y)
+    def send_followers(self, r1x, r1y):
+        old_r1x, old_r1y = self.leader_start_pos
+        actual_dx = r1x - old_r1x
+        actual_dy = r1y - old_r1y
+
+        self.current_base[LEADER] = (r1x, r1y)
+        self.get_logger().info(
+            f'robot1 actual delta: ({actual_dx:.2f}, {actual_dy:.2f})'
+        )
 
         for follower in ['robot2', 'robot3', 'robot4']:
             bx, by = self.current_base[follower]
-            tx = bx + self.pending_dx
-            ty = by + self.pending_dy
+            tx = bx + actual_dx
+            ty = by + actual_dy
             self.current_base[follower] = (tx, ty)
+            self.robot_targets[follower] = (tx, ty)
             self.get_logger().info(f'Sending {follower} to ({tx:.2f}, {ty:.2f})')
             self.send_nav_goal(follower, tx, ty, self.pending_gyaw)
 
     def get_spiral_candidate(self, x, y, attempt):
-        """Get candidate position at given attempt number using spiral."""
         if attempt == 0:
             return x, y
         ring = (attempt - 1) // 8 + 1
-        idx  = (attempt - 1) % 8
+        idx = (attempt - 1) % 8
         angle = idx * math.pi / 4
         return (
             x + ring * SEARCH_STEP * math.cos(angle),
@@ -140,9 +159,10 @@ class SwarmController(Node):
     def goal_response_cb(self, future, robot, x, y):
         handle = future.result()
         if not handle.accepted:
-            self.get_logger().warn(f'{robot} goal REJECTED')
+            self.get_logger().warn(f'{robot} goal REJECTED ({x:.2f},{y:.2f})')
+            self._handle_failure(robot, x, y)
             return
-        self.get_logger().info(f'{robot} goal accepted → ({x:.2f}, {y:.2f})')
+        self.get_logger().info(f'{robot} goal accepted → ({x:.2f},{y:.2f})')
         handle.get_result_async().add_done_callback(
             lambda f, r=robot, gx=x, gy=y: self.goal_result_cb(f, r, gx, gy)
         )
@@ -150,24 +170,26 @@ class SwarmController(Node):
     def goal_result_cb(self, future, robot, x, y):
         status = future.result().status
         if status == 4:
-            self.get_logger().info(f'{robot} SUCCESS ({x:.2f}, {y:.2f})')
+            self.get_logger().info(f'{robot} SUCCESS ({x:.2f},{y:.2f})')
             if robot == LEADER:
-                self.send_followers()
+                self.send_followers(x, y)
         else:
-            self.retry_counts[robot] += 1
-            attempt = self.retry_counts[robot]
+            self._handle_failure(robot, x, y)
 
-            if attempt > MAX_RETRIES:
-                self.get_logger().warn(f'{robot} gave up after {MAX_RETRIES} retries')
-                return
+    def _handle_failure(self, robot, x, y):
+        self.retry_counts[robot] += 1
+        attempt = self.retry_counts[robot]
 
-            # Get next spiral candidate from the original target
-            bx, by = self.current_base[robot]
-            nx, ny = self.get_spiral_candidate(bx, by, attempt)
-            self.get_logger().warn(
-                f'{robot} FAILED attempt {attempt} — retrying ({nx:.2f}, {ny:.2f})'
-            )
-            self.send_nav_goal(robot, nx, ny, self.pending_gyaw)
+        if attempt > MAX_RETRIES:
+            self.get_logger().warn(f'{robot} gave up after {MAX_RETRIES} retries')
+            return
+
+        ox, oy = self.robot_targets.get(robot, (x, y))
+        nx, ny = self.get_spiral_candidate(ox, oy, attempt)
+        self.get_logger().warn(
+            f'{robot} FAILED attempt {attempt} → retrying ({nx:.2f},{ny:.2f})'
+        )
+        self.send_nav_goal(robot, nx, ny, self.pending_gyaw)
 
 
 def main(args=None):

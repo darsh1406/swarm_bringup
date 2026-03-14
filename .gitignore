@@ -1,8 +1,9 @@
-__pycache__/
-*.pyc
-*.pyo
-.eggs/
-*.egg-info/
 build/
 install/
 log/
+__pycache__/
+*.pyc
+*.egg-info/
+.vscode/
+*.bag
+*.db3
