@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Darsh Patel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff; --border: #e8e8e8;
+      --text: #333333; --muted: #888888; --heading: #111111;
+      --link: #1a73e8;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.7; display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* TOP NAV */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 2.5rem;
+      background: #fff; border-bottom: 1px solid var(--border);
+    }
+    .topnav-name { font-weight: 700; font-size: 1rem; color: var(--heading); text-decoration: none; }
+    .topnav-links { display: flex; gap: 1.5rem; list-style: none; }
+    .topnav-links a { font-size: 0.82rem; font-weight: 500; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .topnav-links a:hover { color: var(--heading); }
+
+    /* LAYOUT */
+    .layout { display: flex; flex: 1; max-width: 1160px; margin: 0 auto; width: 100%; }
+
+    /* SIDEBAR — photo + links only, no nav */
+    .sidebar {
+      width: 240px; flex-shrink: 0;
+      padding: 2rem 1.5rem;
+      border-right: 1px solid var(--border);
+      position: sticky; top: 48px;
+      height: calc(100vh - 48px);
+      overflow-y: auto;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+    }
+
+    .sidebar-photo {
+      width: 120px; height: 120px; border-radius: 50%;
+      overflow: hidden; border: 2px solid var(--border);
+      margin-bottom: 0.85rem; background: #fafafa;
+    }
+    .sidebar-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+
+    .sidebar-name { font-size: 1rem; font-weight: 700; color: var(--heading); margin-bottom: 0.2rem; }
+    .sidebar-tag  { font-size: 0.74rem; color: var(--muted); line-height: 1.5; margin-bottom: 1.5rem; }
+
+    .sidebar-meta { width: 100%; text-align: left; }
+    .meta-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .meta-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .meta-item a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .meta-item a:hover { color: var(--link); }
+
+    /* MAIN */
+    .main { flex: 1; padding: 2.5rem 3rem 5rem; min-width: 0; }
+
+    /* SECTIONS */
+    .section { margin-bottom: 3rem; }
+    .section-title { font-size: 1.35rem; font-weight: 700; color: var(--heading); margin-bottom: 1.25rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--heading); }
+
+    /* ABOUT */
+    .about-text p { margin-bottom: 0.85rem; font-size: 0.93rem; }
+    .about-text a { color: var(--link); text-decoration: none; }
+    .about-text a:hover { text-decoration: underline; }
+
+    /* EDUCATION */
+    .edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    .edu-item { display: flex; gap: 0.85rem; align-items: flex-start; }
+    .edu-logo { width: 48px; height: 48px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fafafa; }
+    .edu-logo img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+    .edu-org    { font-size: 0.88rem; font-weight: 700; color: var(--heading); }
+    .edu-degree { font-size: 0.8rem; color: var(--text); font-style: italic; }
+    .edu-dates  { font-size: 0.74rem; color: var(--muted); }
+
+    /* SKILLS */
+    .skills-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .skill-pill { font-size: 0.74rem; padding: 0.22rem 0.7rem; border: 1px solid var(--border); border-radius: 20px; color: var(--text); }
+
+    /* PUBLICATIONS — titles black even though they're links */
+    .pub-list { display: flex; flex-direction: column; gap: 1.5rem; }
+    .pub-item { display: flex; gap: 1rem; align-items: flex-start; }
+    .pub-thumb { width: 80px; height: 80px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fafafa; }
+    .pub-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .pub-title {
+      font-size: 0.9rem; font-weight: 600;
+      color: var(--heading); /* BLACK not blue */
+      text-decoration: none; line-height: 1.4; display: block; margin-bottom: 0.2rem;
+    }
+    .pub-title:hover { text-decoration: underline; color: var(--link); }
+    .pub-venue { font-size: 0.78rem; color: var(--muted); }
+
+    /* RESEARCH */
+    .research-list { display: flex; flex-direction: column; gap: 1.75rem; }
+    .research-item { display: flex; gap: 1rem; align-items: flex-start; }
+    .research-thumb { width: 160px; height: 110px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fafafa; }
+    .research-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+    .research-type  { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.2rem; }
+    .research-title { font-size: 0.95rem; font-weight: 700; color: var(--heading); margin-bottom: 0.15rem; line-height: 1.3; }
+    .research-org   { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .research-org a { color: var(--link); text-decoration: none; }
+    .research-org a:hover { text-decoration: underline; }
+    .research-desc  { font-size: 0.82rem; color: var(--text); line-height: 1.6; margin-bottom: 0.6rem; }
+    .read-more { font-size: 0.78rem; font-weight: 600; color: var(--link); text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; }
+    .read-more:hover { text-decoration: underline; }
+    .read-more svg { width: 11px; height: 11px; }
+
+    /* PROJECTS */
+    .project-list { display: flex; flex-direction: column; }
+    .project-item { display: flex; gap: 1rem; align-items: flex-start; text-decoration: none; padding: 1.25rem 0; border-bottom: 1px solid var(--border); }
+    .project-item:first-child { padding-top: 0; }
+    .project-item:last-child { border-bottom: none; }
+    .project-thumb { width: 160px; height: 110px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fafafa; }
+    .project-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .project-title { font-size: 0.95rem; font-weight: 700; color: var(--heading); margin-bottom: 0.35rem; line-height: 1.35; }
+    .project-item:hover .project-title { color: var(--link); }
+    .project-desc  { font-size: 0.82rem; color: var(--text); line-height: 1.6; margin-bottom: 0.5rem; }
+    .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .tag { font-size: 0.68rem; font-weight: 500; background: #f0f0f0; color: #555; padding: 0.15rem 0.55rem; border-radius: 20px; }
+
+    footer { text-align: center; padding: 1.25rem; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); }
+
+    @media (max-width: 768px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); padding: 1.5rem; }
+      .main { padding: 1.5rem; }
+      .edu-grid { grid-template-columns: 1fr; }
+      .research-thumb, .project-thumb { width: 110px; height: 80px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a class="topnav-name" href="#">Darsh Patel</a>
+  <ul class="topnav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#education">Education</a></li>
+    <li><a href="#publications">Publications</a></li>
+    <li><a href="#research">Research</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="images/Darsh_Robotics.pdf" target="_blank">Resume</a></li>
+  </ul>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR — photo + social links only, no nav links -->
+  <aside class="sidebar">
+    <div class="sidebar-photo">
+      <img src="images/profile.jpg" alt="Darsh Patel" />
+    </div>
+    <div class="sidebar-name">Darsh P. Patel</div>
+    <div class="sidebar-tag">Robotics &amp; Autonomous Systems @ ASU</div>
+
+    <div class="sidebar-meta">
+      <div class="meta-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        Tempe, AZ
+      </div>
+      <div class="meta-item">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12 24 5.37 18.63 0 12 0z"/></svg>
+        <a href="https://github.com/darsh1406" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="meta-item">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14zM7.12 20.45H3.55V9h3.57v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.46C23.21 24 24 23.23 24 22.27V1.73C24 .77 23.21 0 22.23 0z"/></svg>
+        <a href="https://www.linkedin.com/in/darshptl" target="_blank" rel="noopener">LinkedIn</a>
+      </div>
+      <div class="meta-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <a href="mailto:darshp1406@gmail.com">Email</a>
+      </div>
+      <div class="meta-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <a href="images/Darsh_Robotics.pdf" target="_blank" rel="noopener">Resume</a>
+      </div>
+      <div class="meta-item">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+        <a href="https://www.instagram.com/darsh1406" target="_blank" rel="noopener">Instagram</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <section class="section" id="about">
+      <div class="section-title">About Me</div>
+      <div class="about-text">
+        <p>I recently graduated with an M.S. in Robotics and Autonomous Systems from <a href="https://engineering.asu.edu/" target="_blank" rel="noopener">Arizona State University</a>, bringing a versatile background in embedded systems, computer vision, and autonomous navigation. My work spans real-time motion capture, multi-robot coordination, and autonomous vehicles — bridging hardware and software to build intelligent systems that operate in the real world.</p>
+        <p>Off the clock, I channel my competitive drive into basketball and snowboarding — proudly representing my state at national-level basketball competitions. These pursuits, alongside orchestrating complex team projects, have sharpened my discipline, strengthened my teamwork, and honed my leadership abilities, fueling my passion for transforming innovative ideas into real-world impact.</p>
+      </div>
+    </section>
+
+    <section class="section" id="education">
+      <div class="section-title">Education</div>
+      <div class="edu-grid">
+        <div class="edu-item">
+          <div class="edu-logo"><img src="images/asu.png" alt="ASU" /></div>
+          <div>
+            <div class="edu-org">Arizona State University</div>
+            <div class="edu-degree">M.S. in Robotics and Autonomous Systems</div>
+            <div class="edu-dates">Aug 2023 – May 2025 · Tempe, AZ</div>
+          </div>
+        </div>
+        <div class="edu-item">
+          <div class="edu-logo"><img src="images/nirma.jpg" alt="Nirma" /></div>
+          <div>
+            <div class="edu-org">Nirma University, India</div>
+            <div class="edu-degree">B.Tech in Instrumentation and Control Engineering</div>
+            <div class="edu-dates">Aug 2019 – May 2023 · Ahmedabad</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="skills">
+      <div class="section-title">Skills</div>
+      <div class="skills-grid">
+        <span class="skill-pill">Python</span><span class="skill-pill">C / C++</span>
+        <span class="skill-pill">MATLAB</span><span class="skill-pill">ROS / ROS2</span>
+        <span class="skill-pill">OpenCV</span><span class="skill-pill">PyTorch</span>
+        <span class="skill-pill">CARLA Simulator</span><span class="skill-pill">FreeRTOS</span>
+        <span class="skill-pill">ESP32</span><span class="skill-pill">Raspberry Pi</span>
+        <span class="skill-pill">Three.js</span><span class="skill-pill">Visual SLAM</span>
+        <span class="skill-pill">Path Planning</span><span class="skill-pill">Computer Vision</span>
+        <span class="skill-pill">Embedded Systems</span><span class="skill-pill">Multi-Robot Systems</span>
+        <span class="skill-pill">Docker</span><span class="skill-pill">Linux</span>
+        <span class="skill-pill">Git / GitHub</span><span class="skill-pill">MQTT</span>
+      </div>
+    </section>
+
+    <section class="section" id="publications">
+      <div class="section-title">Publications</div>
+      <div class="pub-list">
+        <div class="pub-item">
+          <div class="pub-thumb"><img src="images/mesquite-1.png" alt="Mesquite" /></div>
+          <div>
+            <a class="pub-title" href="https://arxiv.org/abs/2512.22690" target="_blank" rel="noopener">Mesquite MoCap: Democratizing Real-Time Motion Capture with Affordable, Body-worn IoT Sensors and WebXR SLAM</a>
+            <div class="pub-venue">Poojan Vanani, Darsh Patel, et al. · arXiv:2512.22690 [cs] · Dec 2025</div>
+          </div>
+        </div>
+        <div class="pub-item">
+          <div class="pub-thumb"><img src="images/publication.png" alt="Springer" /></div>
+          <div>
+            <a class="pub-title" href="https://link.springer.com/chapter/10.1007/978-981-99-0483-9_2" target="_blank" rel="noopener">Implementation of Master-Slave Communication Using MQTT Protocol</a>
+            <div class="pub-venue">Darsh Patel · BITS-EEE-CON 2022 · Lecture Notes in Networks and Systems, vol 641 · Springer, Singapore</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="research">
+      <div class="section-title">Research</div>
+      <div class="research-list">
+
+        <div class="research-item">
+          <div class="research-thumb">
+            <img src="https://github.com/darsh1406/swarm_bringup/raw/main/docs/assets/screenshot.png" alt="ROS2 Swarm" />
+          </div>
+          <div>
+            <div class="research-type">Project · ROS2 · Multi-Robot Navigation</div>
+            <div class="research-title">ROS2 Multi-Robot Swarm Navigation with Nav2</div>
+            <div class="research-org">Arizona State University · Jan 2026</div>
+            <div class="research-desc">A 4-robot swarm navigation system where TurtleBot3 Waffle robots navigate cooperatively in a shared Gazebo environment using ROS2 Jazzy and Nav2. The delta movement strategy ensures all robots move by the same displacement vector as the leader, preserving formation geometry for any goal direction. Features include sequential dispatch, auto-recovery spiral search, and laser scan filtering to prevent robots from treating teammates as obstacles. Achieved 85–90% goal success rate across all tested scenarios.</div>
+            <a class="read-more" href="project-swarm-ros2.html">Read More <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+          </div>
+        </div>
+
+        <div class="research-item">
+          <div class="research-thumb"><img src="images/mesquite-1.png" alt="Mesquite" /></div>
+          <div>
+            <div class="research-type">Graduate Research Assistant</div>
+            <div class="research-title">Mesquite — Wearable Motion Capture Platform</div>
+            <div class="research-org">Arizona State University · <a href="https://www.linkedin.com/in/tejaswigowda" target="_blank" rel="noopener">Dr. Tejaswi Gowda</a></div>
+            <div class="research-desc">Open-source, low-cost system using 15 ESP32-C3 IMU pods on FreeRTOS, a Raspberry Pi hub, and WebXR SLAM to stream a real-time 3D skeleton to any browser. Benchmarked within 2–5° of OptiTrack at ~5% of the cost.</div>
+            <a class="read-more" href="research-graduate.html">Read More <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+          </div>
+        </div>
+        <div class="research-item">
+          <div class="research-thumb"><img src="images/carla-2.png" alt="CARLA" /></div>
+          <div>
+            <div class="research-type">Project Assistant</div>
+            <div class="research-title">Scenario-Based AV Simulation Testing</div>
+            <div class="research-org">Arizona State University · Dr. Jeffery Wishart</div>
+            <div class="research-desc">Implemented all 37 NHTSA pre-crash test cases in CARLA simulator covering ~97% of light-duty crashes. Developed standardized Driving Assessment metrics reducing real-world testing dependency by up to 97%.</div>
+            <a class="read-more" href="research-assistant.html">Read More <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="projects">
+      <div class="section-title">Projects</div>
+      <div class="project-list">
+
+        <a class="project-item" href="project-warehouse.html">
+          <div class="project-thumb">
+            <img src="https://img.youtube.com/vi/TPyGgLnqf5Y/hqdefault.jpg" alt="Warehouse"
+              onerror="this.src='images/carla-1.png'" />
+          </div>
+          <div>
+            <div class="project-title">Autonomous Warehouse Management System</div>
+            <div class="project-desc">Led a cross-disciplinary team to build an end-to-end autonomous warehouse system with sensor-less mobile robots. Top-10 of 9,000 teams at Flipkart Grid 3.0.</div>
+            <div class="tags"><span class="tag">ESP32</span><span class="tag">Multi-Robot</span><span class="tag">MQTT</span><span class="tag">Embedded Systems</span></div>
+          </div>
+        </a>
+
+        <a class="project-item" href="project-maze.html">
+          <div class="project-thumb"><img src="images/maze-1.png" alt="Maze" /></div>
+          <div>
+            <div class="project-title">Autonomous Maze Navigation with 6DOF Robotic Arm</div>
+            <div class="project-desc">MyCobot Pro 600 solving a 4×4 maze using ArUco-based calibration, BFS path planning, and MATLAB inverse kinematics — validated in a digital twin before real-world execution.</div>
+            <div class="tags"><span class="tag">Computer Vision</span><span class="tag">MATLAB</span><span class="tag">Digital Twin</span><span class="tag">IK</span></div>
+          </div>
+        </a>
+
+        <a class="project-item" href="project-swarm.html">
+          <div class="project-thumb"><img src="images/swarm-1.png" alt="Swarm" /></div>
+          <div>
+            <div class="project-title">Dynamic Swarm Robotics for Sustaining Natural Environments</div>
+            <div class="project-desc">Fully decentralized swarm using triangular-lattice formations and multi-force interaction for robust coordinated navigation in complex environments.</div>
+            <div class="tags"><span class="tag">MATLAB</span><span class="tag">Swarm Intelligence</span><span class="tag">Decentralized Control</span></div>
+          </div>
+        </a>
+
+        <a class="project-item" href="project-slam.html">
+          <div class="project-thumb"><img src="images/slam-1.png" alt="SLAM" /></div>
+          <div>
+            <div class="project-title">MASt3R-SLAM Loop Closure — L1 vs L2 Similarity</div>
+            <div class="project-desc">Replaced L2 loop-closure metric with Manhattan (L1) in MASt3R-SLAM's ASMK kernel. Benchmarked across 9 TUM RGB-D sequences — millimeter ATE parity with 25–30% runtime tradeoff.</div>
+            <div class="tags"><span class="tag">Visual SLAM</span><span class="tag">Python</span><span class="tag">Benchmarking</span></div>
+          </div>
+        </a>
+
+        <a class="project-item" href="project-segmentation.html">
+          <div class="project-thumb"><img src="images/seg-1.png" alt="Segmentation" /></div>
+          <div>
+            <div class="project-title">Advanced Semantic Segmentation with Self-Attention U-Net</div>
+            <div class="project-desc">U-Net with MobileNetV2 backbone and self-attention decoder trained on CityScapes for drivable-area segmentation feeding into autonomous vehicle motion planning.</div>
+            <div class="tags"><span class="tag">Deep Learning</span><span class="tag">PyTorch</span><span class="tag">U-Net</span><span class="tag">Autonomous Driving</span></div>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>&copy; 2025 Darsh P. Patel &nbsp;·&nbsp; Built with GitHub Pages</footer>
+</body>
+</html>

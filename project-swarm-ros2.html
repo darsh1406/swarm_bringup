@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROS2 Swarm Navigation — Darsh Patel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="index.html">Darsh<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html#about">About</a></li>
+    <li><a href="index.html#projects">Projects</a></li>
+    <li><a href="index.html#research">Research</a></li>
+  </ul>
+</nav>
+<div class="detail-wrap">
+  <a class="back-link" href="index.html#research">
+    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back to Research
+  </a>
+  <p class="detail-tag">Project · ROS2 · Multi-Robot Navigation</p>
+  <h1 class="detail-title">ROS2 Multi-Robot Swarm Navigation with Nav2</h1>
+  <p class="detail-sub">ROS2 Jazzy · Gazebo Harmonic · Nav2 · TurtleBot3 · Arizona State University · Jan 2026</p>
+
+  <img class="detail-hero"
+    src="https://github.com/darsh1406/swarm_bringup/raw/main/docs/assets/screenshot.png"
+    alt="Swarm Navigation in Gazebo and RViz" />
+
+  <div class="detail-body">
+    <p>A coordinated 4-robot swarm navigation system where TurtleBot3 Waffle robots navigate autonomously in a shared Gazebo environment using <strong>ROS2 Jazzy</strong> and <strong>Nav2</strong>. An operator specifies a single goal position via RViz, and all four robots navigate to coordinated positions while maintaining their relative formation geometry.</p>
+
+    <h2>Demo</h2>
+    <img class="detail-img"
+      src="https://github.com/darsh1406/swarm_bringup/raw/main/docs/assets/Video.gif"
+      alt="Swarm Navigation Demo GIF" />
+
+    <h2>How It Works</h2>
+    <p>The system uses a <strong>delta movement strategy</strong> — each robot moves by the same displacement vector as the leader robot, ensuring each travels its own unobstructed corridor without inter-robot conflicts:</p>
+    <ul>
+      <li><strong>Sequential Dispatch:</strong> The leader navigates first; followers dispatch after leader SUCCESS, preventing mid-navigation collisions.</li>
+      <li><strong>Auto-Recovery Spiral Search:</strong> When a goal is blocked, the system automatically searches nearby positions in a spiral pattern (up to 5 retries, 8 candidates per ring at 0.2 m step).</li>
+      <li><strong>Laser Scan Filtering:</strong> Each robot filters teammates from its laser scan, preventing robots from treating each other as static obstacles.</li>
+      <li><strong>Goal Cooldown:</strong> Prevents duplicate RViz messages from cancelling in-progress navigation.</li>
+      <li><strong>Map Bounds Clamping:</strong> Goals are automatically clamped to safe navigable area.</li>
+    </ul>
+
+    <h2>System Architecture</h2>
+    <p>The swarm controller node handles delta movement calculation, sequential dispatch, and spiral search auto-recovery. Each of the 4 robots runs its own independent Nav2 stack with NavFn (Dijkstra) path planner and Regulated Pure Pursuit local controller:</p>
+    <ul>
+      <li><strong>robot1</strong> — Leader (y = 0.0)</li>
+      <li><strong>robot2</strong> — Follower (y = +1.0)</li>
+      <li><strong>robot3</strong> — Follower (y = −1.2)</li>
+      <li><strong>robot4</strong> — Follower rear (y = 0.0)</li>
+    </ul>
+
+    <h2>Results</h2>
+    <p>Achieved an overall <strong>85–90% goal success rate</strong> across all tested scenarios in a ~6.3 × 5.9 m map with a 3×3 cylindrical obstacle grid. Zero mid-navigation collisions across 6 goal trials. Blocked goals were resolved within 0.3–0.5 m of target via the spiral search recovery.</p>
+
+    <h2>Future Work</h2>
+    <ul>
+      <li>Parallel navigation with inter-robot collision avoidance</li>
+      <li>Selectable formation shapes (triangle, diamond, square)</li>
+      <li>Multi-waypoint patrol sequences</li>
+      <li>Real hardware deployment</li>
+    </ul>
+
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://github.com/darsh1406/swarm_bringup" target="_blank" rel="noopener">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58C20.56 21.8 24 17.3 24 12 24 5.37 18.63 0 12 0z"/></svg>
+        GitHub Repository
+      </a>
+    </div>
+  </div>
+</div>
+<footer>&copy; 2025 Darsh P. Patel</footer>
+</body>
+</html>
